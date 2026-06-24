@@ -16,7 +16,7 @@
 
 ## Usage
 
-The program accepts the image name with the `-i` or `--image` flag.
+The program accepts the image name with the `-i` or `--image` flag (querying only one image), or `--images` (comma- or space-delimited) (querying multiple images at once).
 
 ```bash
 docker-base-watch -i nginx
@@ -28,11 +28,41 @@ If the image tag is omitted, `docker-base-watch` will automatically use `:latest
 docker-base-watch -i ubuntu
 ```
 
+```bash
+docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine postgres" --threads 3
+UP_TO_DATE         alpine
+UPDATE_AVAILABLE   ghcr.io/esphome/esphome
+UPDATE_AVAILABLE   node:24-alpine
+NOT_FOUND_IN_LOCAL postgres
+exit status 1
+```
+
+Example of usage : 
+
+```bash
+docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --threads 3 2>/dev/null | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
+  echo "Pulling image [$IMAGE]"
+  docker pull $IMAGE
+done
+```
+
+
 ### Flags
 
-- `-i`, `--image`: Docker image name to check (required)
-- `-v`, `--verbose`: Enable verbose output
-- `--version`: Display program version
+```bash
+docker-base-watch
+
+  Flags: 
+    -h --help       Displays help with available flag, subcommand, and positional value parameters.
+    -i --image      Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)
+       --images     Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)
+    -q --quiet      Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)
+    -v --verbose    Enable verbose output
+       --version    Display program version
+       --jon-logs   logs printed as JSON
+    -t --threads    Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) (default: 1)
+
+```
 
 ### Examples
 
@@ -94,6 +124,7 @@ fi
 - `docker-base-watch` must be run in an environment where Docker is installed and the Docker daemon is reachable.
 - If the local image is not present, the tool will report an error from the Docker daemon.
 - The tool compares image digests to detect whether the local image and remote image refer to the same version.
+- You still need to pull the image (`docker pull <image>`) in case of updates being detected.
 
 ## Installation
 
