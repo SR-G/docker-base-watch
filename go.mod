@@ -7,7 +7,7 @@ require github.com/moby/moby/client v0.4.1
 require github.com/integrii/flaggy v1.4.4
 
 require (
-	github.com/SR-G/sul v0.0.5
+	github.com/SR-G/sul v0.0.6
 	github.com/docker/go-sdk/config v0.1.0-alpha013
 	github.com/moby/moby/api v1.54.2
 	github.com/rs/zerolog v1.35.1
