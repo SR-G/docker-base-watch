@@ -23,10 +23,10 @@ CGO_ENABLED=CGO_ENABLED=0
 .ONESHELL: # Applies to every targets in the file!
 
 clean: ## [DEV] Clean everything
-	rm -rf bin/
+	rm -rf ${BUILD_DIR} ${DISTRIBUTION_DIR}
 
 build: clean ## [DEV] Quick compile the main (linux) binary
-	mkdir -p ${BUILD_DIR}
+	mkdir -p ${BUILD_DIR} 
 	${CGO_ENABLED} GOOS=linux GOARCH=amd64 GOOS=linux go build ${LDFLAGS} -o ${BUILD_DIR}/${BINARY} ${PACKAGE} 
 
 mod: ## [DEV] Update go modules
@@ -56,14 +56,10 @@ docker-run: ## [DEV] Launch docker image (for local test purpose)
 	docker run --rm --name "docker-base-watch" -v /var/run/docker.sock:/var/run/docker.sock:ro docker-base-watch --threads 2 --images "alpine postgres"
 
 distribution: install ## [RELEASE] Build the target archive with the expected binaries
-	mkdir -p bin/linux_amd64/ bin/linux_arm64/ bin/windows_amd64/ ${DISTRIBUTION_DIR}
-	cp ${GOPATH}/bin/${BINARY} bin/linux_amd64/
-	cp ${GOPATH}/bin/linux_arm64/${BINARY} bin/linux_arm64/
-	cp ${GOPATH}/bin/windows_amd64/${BINARY}.exe bin/windows_amd64/
-	cd bin/
-	zip -r -9 ${DISTRIBUTION_DIR}/${PACKAGE}.zip ./linux_amd64/
-	zip -r -9 ${DISTRIBUTION_DIR}/${PACKAGE}.zip ./linux_arm64/
-	zip -r -9 ${DISTRIBUTION_DIR}/${PACKAGE}.zip ./windows_amd64/
+	mkdir -p ${DISTRIBUTION_DIR}
+	cp ${GOPATH}/bin/${BINARY}                   ${DISTRIBUTION_DIR}/${BINARY}-linux-amd64
+	cp ${GOPATH}/bin/linux_arm64/${BINARY}       ${DISTRIBUTION_DIR}/${BINARY}-linux-arm64
+	cp ${GOPATH}/bin/windows_amd64/${BINARY}.exe ${DISTRIBUTION_DIR}/${BINARY}-windows-amd64.exe
 
 help:    ## [HELP] Display commands defined in this makefile
 	@sed \

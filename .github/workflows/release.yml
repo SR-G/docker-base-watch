@@ -45,7 +45,10 @@ jobs:
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
-          files: distribution/docker-base-watch.zip
+          files: |
+            distribution/docker-base-watch-linux-amd64
+            distribution/docker-base-watch-linux-arm64
+            distribution/docker-base-watch-windows-amd64.exe
           body: |
             Release ${{ github.ref_name }} of docker-base-watch.
           draft: false
