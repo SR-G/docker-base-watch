@@ -2,6 +2,8 @@
 
 `docker-base-watch` is a small GOLANG CLI tool that allows to easily determine if some docker images have newer versions available in upstream docker registries.
 
+![screenshot](screenshot.png)
+
 ## Features
 
 - Can check one or multiple images at the same time
@@ -9,6 +11,7 @@
 - Assumes `:latest` when no tag is provided
 - Can be executed multiple times with same results (i.e., does not rely on pulling the parent docker image, but is comparing the local digest of the image and the remote one)
 - Unix "one tool-one feature" principle (can be combined with other steps in CI/CD tasks, ..., by relying on exit codes or on outputs)
+- Detects credentials of parent docker registries from `~/.docker/config.json
 
 ## Usage
 
