@@ -31,7 +31,7 @@ jobs:
   release:
     name: Build and Publish Release (binaries and docker image)
     runs-on: ubuntu-latest
-    if: ${{ steps.changelog.outputs.skipped == 'false' }}
+    if: ${{ needs.changelog.outputs.skipped == 'false' }}
     needs: [ changelog ]
     permissions:
       contents: write    
