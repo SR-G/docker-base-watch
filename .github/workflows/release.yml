@@ -42,15 +42,6 @@ jobs:
           make distribution
           # GOOS=linux GOARCH=amd64 go build -o release/docker-base-watch-linux-amd64 .
 
-#      - name: Create GitHub release
-#        id: create_release
-#        uses: actions/create-release@v4
-#        with:
-#          tag_name: ${{ github.ref_name }}
-#          release_name: ${{ github.ref_name }}
-#        env:
-#          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
