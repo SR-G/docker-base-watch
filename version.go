@@ -7,7 +7,7 @@ import (
 
 // These variables are injected through Makefile at compile time
 var BuildVersion = PROGRAM_VERSION
-var BuildVersionLabel = "SNAPSHOT"
+var BuildVersionLabel = PROGRAM_VERSION_LABEL
 var BuildCommit = ""
 var BuildCompilationTimestamp = ""
 

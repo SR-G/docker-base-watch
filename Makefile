@@ -8,8 +8,8 @@ GOPATH := $(shell echo "${HOME}")/go
 BUILD_DIR := $(shell echo "${PWD}")/bin
 DISTRIBUTION_DIR := $(shell echo "${PWD}")/distribution
 
-VERSION=1.1.0
-VERSION_LABEL=RELEASE
+VERSION=1.1.1
+VERSION_LABEL=SNAPSHOT
 PACKAGE=docker-base-watch
 BUILD_TIME=$(shell date "+%FT%T%z")
 

@@ -16,8 +16,9 @@ import (
 var logger zerolog.Logger
 
 const (
-	PROGRAM_VERSION = "1.0.1"
-	PROGRAM_NAME    = "docker-base-watch"
+	PROGRAM_NAME          = "docker-base-watch"
+	PROGRAM_VERSION       = "1.1.1"    // overwritten at release time from makefile
+	PROGRAM_VERSION_LABEL = "SNAPSHOT" // overwritten at release time from makefile
 
 	EXIT_VALUE_ALL_SAME_VERSION        = 0
 	EXIT_VALUE_DIFFERENT_VERSION_FOUND = 1
