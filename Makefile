@@ -45,7 +45,7 @@ nm: ## [DEV] Analyze symbols in binary (need to remove LDFLAGS -s -w)
 	go tool nm bin/${BINARY}
 
 install: clean ## [RELEASE] Build all target binaries on all expected platforms
-	${CGO_ENABLED} GOARCH=amd64 GOOS=windows go build ${LDFLAGS} -o ${BUILD_DIR}/windows_amd64/${BINARY}.exe                                 ${PACKAGE}
+	${CGO_ENABLED} GOARCH=amd64 GOOS=windows go build ${LDFLAGS} -o ${BUILD_DIR}/windows_amd64/${BINARY}.exe                ${PACKAGE}
 	${CGO_ENABLED} GOARCH=amd64 GOOS=linux   go build ${LDFLAGS} -o ${BUILD_DIR}/linux_amd64/${BINARY} ${LINUX_EXTRA_FLAGS} ${PACKAGE}
 	${CGO_ENABLED} GOARCH=arm64 GOOS=linux   go build ${LDFLAGS} -o ${BUILD_DIR}/linux_arm64/${BINARY} ${LINUX_EXTRA_FLAGS} ${PACKAGE}
 
@@ -57,9 +57,9 @@ docker-run: ## [DEV] Launch docker image (for local test purpose)
 
 distribution: install ## [RELEASE] Build the target archive with the expected binaries
 	mkdir -p ${DISTRIBUTION_DIR}
-	cp ${GOPATH}/bin/${BINARY}                   ${DISTRIBUTION_DIR}/${BINARY}-linux-amd64
-	cp ${GOPATH}/bin/linux_arm64/${BINARY}       ${DISTRIBUTION_DIR}/${BINARY}-linux-arm64
-	cp ${GOPATH}/bin/windows_amd64/${BINARY}.exe ${DISTRIBUTION_DIR}/${BINARY}-windows-amd64.exe
+	cp ${BUILD_DIR}/linux_amd64/${BINARY}       ${DISTRIBUTION_DIR}/${BINARY}-linux-amd64
+	cp ${BUILD_DIR}/linux_arm64/${BINARY}       ${DISTRIBUTION_DIR}/${BINARY}-linux-arm64
+	cp ${BUILD_DIR}/windows_amd64/${BINARY}.exe ${DISTRIBUTION_DIR}/${BINARY}-windows-amd64.exe
 
 help:    ## [HELP] Display commands defined in this makefile
 	@sed \
