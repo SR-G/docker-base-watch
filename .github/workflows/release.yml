@@ -6,13 +6,41 @@ on:
       - 'v*'
 
 jobs:
-  release:
-    name: Build and Publish Release
+  changelog:
+    name: Changelog
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+
+    outputs:
+      skipped: ${{ steps.changelog.outputs.skipped }}
+      tag: ${{ steps.changelog.outputs.tag }}
+      clean_changelog: ${{ steps.changelog.outputs.clean_changelog }}
+      version: ${{ steps.changelog.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Conventional Changelog Action
+        id: changelog
+        uses: TriPSs/conventional-changelog-action@v6
+        with:
+          preset: "conventionalcommits"
+          tag-prefix: 'v'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  release:
+    name: Build and Publish Release (binaries and docker image)
+    runs-on: ubuntu-latest
+    if: ${{ steps.changelog.outputs.skipped == 'false' }}
+    needs: [ changelog ]
     permissions:
       contents: write    
 
     steps:
+      - name: Get repository name
+        id: get_repo
+        run: echo "REPO_NAME=$(echo ${{ github.repository }} | cut -d'/' -f2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v7
 
@@ -40,7 +68,46 @@ jobs:
       - name: Build all binary
         run: |
           make distribution
-          # GOOS=linux GOARCH=amd64 go build -o release/docker-base-watch-linux-amd64 .
+
+      - name: Login to GHCR.IO
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Extract version parts
+        id: extract_version
+        run: |
+          VERSION=${{ needs.changelog.outputs.version }}
+          MAJOR_MINOR=$(echo $VERSION | sed 's/^v//' | cut -d'-' -f1 | cut -d'.' -f1,2)
+          echo "MAJOR_MINOR_TAG=${MAJOR_MINOR}.x" >> $GITHUB_ENV
+
+      - name: Setup Docker Metadata
+        uses: docker/metadata-action@v6
+        id: meta
+        with:
+          images: |
+            ghcr.io/${{ github.repository_owner }}/${{ env.REPO_NAME }}
+          tags: |
+            latest
+            ${{ needs.changelog.outputs.version }}
+            ${{ env.MAJOR_MINOR_TAG }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+              VERSION=${{ needs.changelog.outputs.version }}
+          platforms: linux/amd64          
 
       - name: Release
         uses: softprops/action-gh-release@v3
@@ -50,8 +117,12 @@ jobs:
             distribution/docker-base-watch-linux-arm64
             distribution/docker-base-watch-windows-amd64.exe
           body: |
-            Release ${{ github.ref_name }} of docker-base-watch.
-          draft: false
-          prerelease: false
+            <details>
+              <summary>Release ${{ github.ref_name }} of docker-base-watch.</summary>
+              ${{ needs.changelog.outputs.clean_changelog }}
+            </details>
+          draft: true
+          prerelease: true
           overwrite_files: true
           generate_release_notes: true
+
