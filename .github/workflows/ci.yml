@@ -20,7 +20,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: '1.26'
 
       - name: Cache Go modules
         uses: actions/cache@v4
@@ -40,5 +40,4 @@ jobs:
 
       - name: Build binary
         run: |
-          mkdir -p bin
-          go build -o bin/docker-base-watch .
+          make build 
