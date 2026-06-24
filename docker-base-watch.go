@@ -119,7 +119,7 @@ func initOptions() *Options {
 	var parameterImageName string
 	var parameterImageNames string
 
-	var parameterNbConcurrentThreads = 1
+	var parameterNbConcurrentThreads = sul.GetEnvWithDefaultInt("DOCKER_BASE_WATCH_NB_THREADS", 1)
 
 	flaggy.String(&parameterImageName, "i", "image", "Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)")
 	flaggy.String(&parameterImageNames, "", "images", "Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)")

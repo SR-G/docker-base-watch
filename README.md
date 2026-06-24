@@ -88,7 +88,24 @@ Note : when launched with the `-q`/`--quiet` flag, no outputs are generated, but
 By default, only 1 thread is used, so all requested images are processed in sequence. The execution can be vastly accelerated by adjusting the number of threads.
 
 ```bash
-docker-base-watch -i nginx -q --threads 5
+docker-base-watch --images "alpine,nginx,archlinux" -q --threads 3
+```
+
+Can also be defined with an ENV variable : 
+
+```bash
+DOCKER_BASE_WATCH_NB_THREADS=3
+docker-base-watch --images "alpine,nginx,archlinux" -q 
+```
+
+Benchmark (here with 45 images, in a VPS) : 
+
+```bash
+# with 1 thread
+0,07s user 0,04s system 0% cpu 28,975 total # 28 seconds
+
+# with 10 threads
+0,06s user 0,04s system 2% cpu 3,500 total  # less than 4 seconds
 ```
 
 ### All available flags
@@ -133,6 +150,41 @@ docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --th
   docker pull $IMAGE
 done
 ```
+
+### Script detecting and updating images when update are available
+
+As an example, this script can be used as a basis : 
+
+- detect all images from running containers
+- find the corresponding docker compose file
+- avoid duplicates of image/stack (for docker compose exposing multiple services, etc.)
+- relaunch automatically stacks for which an update is needed 
+
+```bash
+#!/bin/bash
+DOCKER_COMPOSE_FILES_PATH="<path where docker-compose YML files are located>"
+NB_THREADS=10
+
+STACKS=/tmp/update.$$
+IMAGES=$(docker ps --format '{{.Image}}' | sort -u | tr "\n" ",")
+# First pass, identify stack (in docker compose) when an image is available. This is done like this to avoid duplicates of stacks
+docker-base-watch --images "${IMAGES}" --threads $NB_THREADS | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
+  docker ps --format '{{.Names}}' --filter "ancestor=${IMAGE}" | sort -u | while read CONTAINER ; do
+    grep -l -e "${CONTAINER}:" ${DOCKER_COMPOSE_FILES_PATH}/*.yml | sort -u | while read YAML ; do
+      STACK=$(basename "$YAML" | sed 's/\.yml//')
+      echo "Registering stack [$STACK] for image [$IMAGE] / container [$CONTAINER] (yml [$YAML])"
+      echo "${STACK}" >> "${STACKS}"
+    done
+  done
+done
+
+cat "${STACKS}" | sort -u | while read STACK YAML; do
+  echo "Updating STACK [$STACK]"
+  docker-compose -f "${DOCKER_COMPOSE_FILES_PATH}/${STACK}.yml" --pull up
+done
+rm -f "${STACKS}" >/dev/null 2>&1
+```
+
 
 ## Notes
 
