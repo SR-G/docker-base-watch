@@ -27,6 +27,7 @@ jobs:
           preset: "conventionalcommits"
           tag-prefix: 'v'
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          skip-git-pull: "true"
 
   release:
     name: Build and Publish Release (binaries and docker image)
