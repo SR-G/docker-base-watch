@@ -155,7 +155,7 @@ func initOptions() *Options {
 		options.ImageNames = append(options.ImageNames, strings.TrimSpace(imageNameCleaned))
 	}
 
-	for _, imageName := range SplitAny(parameterImageNames, ", ") {
+	for _, imageName := range sul.SplitAny(parameterImageNames, ", ") {
 		imageNameCleaned := strings.TrimSpace(imageName)
 		if imageNameCleaned != "" {
 			options.ImageNames = append(options.ImageNames, strings.TrimSpace(imageNameCleaned))

@@ -7,8 +7,9 @@ require github.com/moby/moby/client v0.4.1
 require github.com/integrii/flaggy v1.4.4
 
 require (
-	github.com/SR-G/sul v0.0.4
+	github.com/SR-G/sul v0.0.5
 	github.com/docker/go-sdk/config v0.1.0-alpha013
+	github.com/moby/moby/api v1.54.2
 	github.com/rs/zerolog v1.35.1
 	github.com/samber/lo v1.53.0
 )
@@ -28,7 +29,6 @@ require (
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/moby/api v1.54.2 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
