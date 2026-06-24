@@ -37,6 +37,7 @@ jobs:
     needs: [ changelog ]
     permissions:
       contents: write    
+      packages: write
 
     steps:
       - name: Get repository name
