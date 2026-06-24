@@ -151,7 +151,7 @@ docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --th
 done
 ```
 
-### Script detecting and updating images when update are available
+### Script detecting and updating images when updates are available
 
 As an example, this script can be used as a basis : 
 
@@ -178,6 +178,7 @@ docker-base-watch --images "${IMAGES}" --threads $NB_THREADS | grep "UPDATE_AVAI
   done
 done
 
+# Second pass, just use docker compose against the identified YAML / stack files
 cat "${STACKS}" | sort -u | while read STACK YAML; do
   echo "Updating STACK [$STACK]"
   docker-compose -f "${DOCKER_COMPOSE_FILES_PATH}/${STACK}.yml" --pull up
