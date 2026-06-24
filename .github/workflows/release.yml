@@ -28,11 +28,12 @@ jobs:
           tag-prefix: 'v'
           github-token: ${{ secrets.GITHUB_TOKEN }}
           skip-git-pull: "true"
+          skip-version-file: "true"
 
   release:
     name: Build and Publish Release (binaries and docker image)
     runs-on: ubuntu-latest
-    if: ${{ needs.changelog.outputs.skipped == 'false' }}
+    # if: ${{ needs.changelog.outputs.skipped == 'false' }}
     needs: [ changelog ]
     permissions:
       contents: write    
