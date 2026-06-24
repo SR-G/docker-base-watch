@@ -1,35 +1,51 @@
 # docker-base-watch
 
-`base-watch` is a small GOLANG CLI tool that compares a locally available Docker image with the latest image found in the image registry. It inspects the local Docker daemon, retrieves the image digest, and compares it with the digest from the remote registry to determine whether the image is up to date.
+`docker-base-watch` is a small GOLANG CLI tool that allows to easily determine if some docker images have newer versions available in upstream docker registries.
 
 ## Features
 
-- Reads a Docker image name from command line flags
+- Can check one or multiple images at the same time
+- Multi-threadable to speed up analysis
 - Assumes `:latest` when no tag is provided
-- Compares local image digest with remote image digest
-- Supports verbose logging
-- Supports version display
-
-## Requirements
-
-- Docker daemon accessible from the local environment
+- Can be executed multiple times with same results (i.e., does not rely on pulling the parent docker image, but is comparing the local digest of the image and the remote one)
+- Unix "one tool-one feature" principle (can be combined with other steps in CI/CD tasks, ..., by relying on exit codes or on outputs)
 
 ## Usage
 
-The program accepts the image name with the `-i` or `--image` flag (querying only one image), or `--images` (comma- or space-delimited) (querying multiple images at once).
+### Basic usage
+
+Just launch the program by providing one image (`--image <image>`) or multiple ones (`--images <image1>,<image2>` - can be comma-separated or space-separated).
+
+Note : if the image tag is omitted, `docker-base-watch` will automatically use `:latest`.
 
 ```bash
-docker-base-watch -i nginx
+# One image
+docker-base-watch -i "nginx"
+docker-base-watch --image "nginx:latest"
+
+# Multiple ones
+docker-base-watch --images "alpine,nginx"
+docker-base-watch --images "alpine nginx"
 ```
 
-If the image tag is omitted, `docker-base-watch` will automatically use `:latest`.
+### Processing the results
+
+You can either rely on the output, which can easily be post-processed. Or rely on the unix exit code.
+
+
+#### With the generated output
+
+| Image Status           | Explanation                                                                                              |
+|------------------------|----------------------------------------------------------------------------------------------------------|
+| **UP_TO_DATE**         | The local image has no available update in the remote registry                                           |
+| **NOT_FOUND_IN_LOCAL** | The image to analyze has never been locally pulled                                                       |
+| **UPDATE_AVAILABLE**   | There is an update available in the remote registry                                                      |
+| **ERROR**              | Error when doing the query. Relaunch the command with the `-v`/`--verbose` flag to have more details     |
+
+Example : 
 
 ```bash
-docker-base-watch -i ubuntu
-```
-
-```bash
-docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine postgres" --threads 3
+docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine postgres" 
 UP_TO_DATE         alpine
 UPDATE_AVAILABLE   ghcr.io/esphome/esphome
 UPDATE_AVAILABLE   node:24-alpine
@@ -37,17 +53,42 @@ NOT_FOUND_IN_LOCAL postgres
 exit status 1
 ```
 
-Example of usage : 
+#### With error codes
+
+| Error code  | Explanation                                                                     |
+|-------------|---------------------------------------------------------------------------------|
+| **0**       | Execution successful, and no update available for any analyzed image            |
+| **1**       | Execution successful, and at least one image has some available updates         |
+| **2**       | Execution aborted due to incorrect input parameters at command line level       |
+| **3**       | Execution successufl, but nothing has been done (`--version` being used, etc.)  |
+| **4**       | Execution aborted due to some encountered errors. Relaunch the command with the `-v`/`--verbose` flag to have more details |
+
+Example : 
 
 ```bash
-docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --threads 3 2>/dev/null | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
-  echo "Pulling image [$IMAGE]"
-  docker pull $IMAGE
-done
+% docker-base-watch -i nginx
+NOT_FOUND_IN_LOCAL nginx
+% echo $?
+4
 ```
 
+Note : when launched with the `-q`/`--quiet` flag, no outputs are generated, but error codes are still the same.
 
-### Flags
+```bash
+% docker-base-watch -i nginx -q
+% echo $?
+4
+```
+
+### Multithreading
+
+By default, only 1 thread is used, so all requested images are processed in sequence. The execution can be vastly accelerated by adjusting the number of threads.
+
+```bash
+docker-base-watch -i nginx -q --threads 5
+```
+
+### All available flags
 
 ```bash
 docker-base-watch
@@ -64,74 +105,90 @@ docker-base-watch
 
 ```
 
-### Examples
+### Example of usage
 
-Check a Docker image and compare digests:
+#### Manually rely on a parent image having an update available
 
-```bash
-docker-base-watch -i nginx:latest
-```
-
-Use verbose mode for more detailed logging:
-
-```bash
-docker-base-watch -i alpine -v
-```
-
-Display the program version:
-
-```bash
-docker-base-watch --version
-```
-
-### Example `--help` Output
-
-```bash
-docker-base-watch --help
-```
-
-Example output:
-
-```bash
-docker-base-watch
-
-  Flags: 
-    -h --help      Displays help with available flag, subcommand, and positional value parameters.
-    -i --image     Docker image name to check
-    -v --verbose   Enable verbose output
-       --version   Display program version
-    -q --quiet     Enable quiet output (final result to be retrieved only through exit value, 
-                   i.e., echo $?)
-```
-
-### Shell example
-
-To be used in some CI/CD commands - a simplified example could be : 
+For example, to be used in some CI/CD commands in order to re-build something when a parent image has been updated, etc. - a simplified example could be : 
 
 ```bash
 BASE_IMAGE=alpine
-base-watch -q -i "$BASE_IMAGE"
+docker-base-watch -q -i "$BASE_IMAGE"
 UPDATE_AVAILABLE=$?
 if [[ "$UPDATE_AVAILABLE" -eq 0 ]] ; then
-  echo "No newer image for base [$ROOT], base image [$BASE_IMAGE]"
+  echo "No newer image for base image [$BASE_IMAGE]"
 else
   # do something useful, like rebuilding other docker images, etc.
 fi
 ```
 
-### Notes
+#### Trigger a pull for all images having an update available
 
-- `docker-base-watch` must be run in an environment where Docker is installed and the Docker daemon is reachable.
-- If the local image is not present, the tool will report an error from the Docker daemon.
-- The tool compares image digests to detect whether the local image and remote image refer to the same version.
-- You still need to pull the image (`docker pull <image>`) in case of updates being detected.
+```bash
+docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --threads 3 2>/dev/null | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
+  echo "Pulling image [$IMAGE]"
+  docker pull $IMAGE
+done
+```
 
-## Installation
+## Notes
+
+- `docker-base-watch` must be executed in an environment where Docker is installed and the Docker daemon is reachable (). That means that in case of docker execution, you need to mount the docker socket : `docker run --rm --name "docker-base-watch" -v /var/run/docker.sock:/var/run/docker.sock:ro docker-base-watch -i nginx`
+- If the local image is not present, the tool will report an error from the Docker daemon (`NOT_FOUND_IN_LOCAL`).
+- The tool compares image digests to detect whether the local image and remote image refer to the same version (i.e., is not triggering any pull, in order to be idempotent)
+- As a consequence, if needed, you still need to pull the image (`docker pull <image>`) in case of updates being detected.
+
+## DEV Activities
+
+### Build
 
 Build the program from source inside the main directory :
 
 ```bash
 cd ~/docker-base-watch/
-go build -o docker-base-watch
+make build
 ```
 
+### Make commands
+
+```bash
+build         [DEV] Quick compile the main (linux) binary
+clean         [DEV] Clean everything
+distribution  [RELEASE] Build the target archive with the expected binaries
+docker-build  [RELEASE] Build docker image with multi-stage Dockerfile
+docker-run    [DEV] Launch docker image (for local test purpose)
+format        [DEV] Format code
+help          [HELP] Display commands defined in this makefile
+install       [RELEASE] Build all target binaries on all expected platforms
+mod           [DEV] Update go modules
+nm            [DEV] Analyze symbols in binary (need to remove LDFLAGS -s -w)
+run           [DEV] Run the program with DEV configuration
+version       [DEV] Extract the version (in go resources way) from binary
+```
+
+### Docker
+
+```bash
+make docker-build
+make docker-run
+```
+
+### Release
+
+Update the version/label in the `Makefile`, then : 
+
+```bash
+git add .
+git commit -m"..."
+git push origin master
+git tag v1.1.0-RELEASE
+git push origin v1.1.0-RELEASE
+```
+
+
+### Overwrite a previous tag
+
+```bash
+git tag --delete v1.1.0-RELEASE
+git push --delete origin v1.1.0-RELEASE
+```
