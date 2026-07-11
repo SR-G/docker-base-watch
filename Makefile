@@ -1,16 +1,14 @@
 SOURCEDIR=.
 SOURCES := $(shell find $(SOURCEDIR) -name '*.go')
-
-BINARY=docker-base-watch
 PWD := $(shell pwd)
-
 GOPATH := $(shell echo "${HOME}")/go
-BUILD_DIR := $(shell echo "${PWD}")/bin
-DISTRIBUTION_DIR := $(shell echo "${PWD}")/distribution
+BUILD_DIR := ${PWD}/bin
+DISTRIBUTION_DIR := ${PWD}/distribution
 
+PACKAGE=docker-base-watch
+BINARY=docker-base-watch
 VERSION=1.1.1
 VERSION_LABEL=SNAPSHOT
-PACKAGE=docker-base-watch
 BUILD_TIME=$(shell date "+%FT%T%z")
 
 LDFLAGS=-trimpath -ldflags "-s -w -X 'main.BuildCommit=`git rev-parse HEAD`' -X 'main.BuildVersion=${VERSION}' -X 'main.BuildVersionLabel=${VERSION_LABEL}' -X 'main.BuildCompilationTimestamp=${BUILD_TIME}'"
@@ -61,7 +59,7 @@ distribution: install ## [RELEASE] Build the target archive with the expected bi
 	cp ${BUILD_DIR}/linux_arm64/${BINARY}       ${DISTRIBUTION_DIR}/${BINARY}-linux-arm64
 	cp ${BUILD_DIR}/windows_amd64/${BINARY}.exe ${DISTRIBUTION_DIR}/${BINARY}-windows-amd64.exe
 
-help:    ## [HELP] Display commands defined in this makefile
+help: ## [HELP] Display commands defined in this makefile
 	@sed \
 		-e '/^[a-zA-Z0-9_\-]*:.*##/!d' \
 		-e 's/:.*##\s*/:/' \

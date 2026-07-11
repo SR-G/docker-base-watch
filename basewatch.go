@@ -159,17 +159,17 @@ func (bw *BaseWatch) CheckImage(imageName string) (*AnalyzeResult, error) {
 		return result, fmt.Errorf("failed to inspect local image [%s] : %v", imageName, err)
 	}
 
-	var localDigest string
+	localDigests := []string{}
 	if len(localInspect.RepoDigests) > 0 {
 		for _, digest := range localInspect.RepoDigests {
 			if strings.HasPrefix(digest, result.ImageNameAnalyzed[:strings.LastIndex(result.ImageNameAnalyzed, ":")]) {
-				localDigest = strings.Split(digest, "@")[1]
-				break
+				localDigests = append(localDigests, strings.Split(digest, "@")[1])
 			}
 		}
 	} else {
-		localDigest = localInspect.ID
+		localDigests = append(localDigests, localInspect.ID)
 	}
+	localDigests = lo.Uniq(localDigests)
 
 	authConfig := bw.RetrieveAuthConfig(imageName)
 	opts := client.DistributionInspectOptions{}
@@ -193,9 +193,9 @@ func (bw *BaseWatch) CheckImage(imageName string) (*AnalyzeResult, error) {
 	}
 	remoteDigest := dist.Descriptor.Digest.String()
 
-	result.DigestLocal = localDigest
+	result.DigestLocal = strings.Join(localDigests, ", ")
 	result.DigestRemote = remoteDigest
-	result.Identical = (localDigest == remoteDigest)
+	result.Identical = slices.Contains(localDigests, remoteDigest)
 
 	if bw.Progress != nil {
 		bw.Progress(*result)
