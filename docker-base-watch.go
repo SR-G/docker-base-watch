@@ -20,6 +20,8 @@ const (
 	PROGRAM_VERSION       = "1.1.1"    // overwritten at release time from makefile
 	PROGRAM_VERSION_LABEL = "SNAPSHOT" // overwritten at release time from makefile
 
+	DEFAULT_NUMBER_OF_THREADS = 20
+
 	EXIT_VALUE_ALL_SAME_VERSION        = 0
 	EXIT_VALUE_DIFFERENT_VERSION_FOUND = 1
 	EXIT_VALUE_INVALID_ARGUMENTS       = 2
@@ -119,7 +121,7 @@ func initOptions() *Options {
 	var parameterImageName string
 	var parameterImageNames string
 
-	var parameterNbConcurrentThreads = sul.GetEnvWithDefaultInt("DOCKER_BASE_WATCH_NB_THREADS", 1)
+	var parameterNbConcurrentThreads = sul.GetEnvWithDefaultInt("DOCKER_BASE_WATCH_NB_THREADS", DEFAULT_NUMBER_OF_THREADS)
 
 	flaggy.String(&parameterImageName, "i", "image", "Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)")
 	flaggy.String(&parameterImageNames, "", "images", "Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)")
@@ -163,7 +165,7 @@ func initOptions() *Options {
 	}
 
 	options.Quiet = parameterQuiet
-	options.NbThreads = 1
+	options.NbThreads = DEFAULT_NUMBER_OF_THREADS
 	if parameterNbConcurrentThreads > 1 {
 		options.NbThreads = parameterNbConcurrentThreads
 	}
