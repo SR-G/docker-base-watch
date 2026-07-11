@@ -234,7 +234,7 @@ make docker-run
 Update the version/label in the `Makefile`, then : 
 
 ```bash
-TAG="v1.1.1-SNAPSHOT"
+VERSION=$(make get-version)
 git add .
 git commit -m"..."
 git push origin master
@@ -246,7 +246,7 @@ git push origin ${TAG}
 ### Overwrite a previous tag
 
 ```bash
-TAG="v1.1.1-SNAPSHOT"
+VERSION=$(make get-version)
 git tag --delete ${TAG}
 git push --delete origin ${TAG}
 ```

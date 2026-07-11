@@ -6,9 +6,9 @@ BUILD_DIR := ${PWD}/bin
 DISTRIBUTION_DIR := ${PWD}/distribution
 
 PACKAGE=docker-base-watch
-BINARY=docker-base-watch
+BINARY=${PACKAGE}
 VERSION=1.1.1
-VERSION_LABEL=SNAPSHOT
+VERSION_LABEL=RELEASE
 BUILD_TIME=$(shell date "+%FT%T%z")
 
 LDFLAGS=-trimpath -ldflags "-s -w -X 'main.BuildCommit=`git rev-parse HEAD`' -X 'main.BuildVersion=${VERSION}' -X 'main.BuildVersionLabel=${VERSION_LABEL}' -X 'main.BuildCompilationTimestamp=${BUILD_TIME}'"
@@ -19,6 +19,9 @@ CGO_ENABLED=CGO_ENABLED=0
 .PHONY: install clean deploy run 
 
 .ONESHELL: # Applies to every targets in the file!
+
+get-version:
+	@echo "v${VERSION}-${VERSION_LABEL}"    
 
 clean: ## [DEV] Clean everything
 	rm -rf ${BUILD_DIR} ${DISTRIBUTION_DIR}
