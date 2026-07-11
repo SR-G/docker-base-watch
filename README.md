@@ -238,7 +238,7 @@ TAG=$(make get-version)
 git add .
 git commit -m"Prepare ${TAG}"
 git push origin master
-git tag "${TAG}"
+git tag ${TAG}
 git push origin ${TAG}
 ```
 

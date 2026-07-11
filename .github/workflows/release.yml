@@ -93,7 +93,7 @@ jobs:
         uses: docker/metadata-action@v6
         id: meta
         env:
-          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest # ,index
         with:
           images: |
             ghcr.io/${{ github.repository_owner }}/${{ env.REPO_NAME }}
@@ -118,7 +118,6 @@ jobs:
           annotations: ${{ steps.meta.outputs.annotations }}
           provenance: false # Disable provenance to avoid unknown/unknown
           sbom: false       # Disable sbom to avoid unknown/unknown
-
 
       - name: Release
         uses: softprops/action-gh-release@v3
