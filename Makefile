@@ -7,7 +7,7 @@ DISTRIBUTION_DIR := ${PWD}/distribution
 
 PACKAGE=docker-base-watch
 BINARY=${PACKAGE}
-VERSION=1.1.1
+VERSION=1.1.2
 VERSION_LABEL=RELEASE
 BUILD_TIME=$(shell date "+%FT%T%z")
 
