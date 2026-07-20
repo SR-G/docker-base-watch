@@ -85,16 +85,18 @@ Note : when launched with the `-q`/`--quiet` flag, no outputs are generated, but
 
 ### Multithreading
 
-By default, only 1 thread is used, so all requested images are processed in sequence. The execution can be vastly accelerated by adjusting the number of threads.
+By default, `20` threads are used, in order to vastly accelerate the processing. The number of threads can be adjusted if needed. With `1` thread, everything will be processed in sequence. Adjutement can be done : 
+
+- Either with a parameter : 
 
 ```bash
 docker-base-watch --images "alpine,nginx,archlinux" -q --threads 3
 ```
 
-Can also be defined with an ENV variable : 
+- Either with an ENV variable : 
 
 ```bash
-DOCKER_BASE_WATCH_NB_THREADS=3
+DOCKER_BASE_WATCH_NB_THREADS=15
 docker-base-watch --images "alpine,nginx,archlinux" -q 
 ```
 
@@ -108,24 +110,40 @@ Benchmark (here with 45 images, in a VPS) :
 0,06s user 0,04s system 2% cpu 3,500 total  # less than 4 seconds
 ```
 
+### Excluding images
+
+In case you are providing through `--images` a full list of images, already built (for example, directly coming from a `docker ps` command), and if you want to exclude some of them, you can use the `--excluded-images` flag (with a list of image names / regexp).
+
+Example : 
+
+```bash
+docker-base-watch --images "alpine,archlinux,gluetun-homelab" --excluded-images "dockhand, .*gluetun.*" # here only alpine and archlinux would be analyzed
+```
+
+
 ### All available flags
 
 ```bash
 docker-base-watch
 
-  Flags: 
-    -h --help       Displays help with available flag, subcommand, and positional value parameters.
-    -i --image      Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)
-       --images     Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)
-    -q --quiet      Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)
-    -v --verbose    Enable verbose output
-       --version    Display program version
-       --jon-logs   logs printed as JSON
-    -t --threads    Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) (default: 1)
+  Subcommands:
+    completion   Generate shell completion script for bash or zsh.
+
+  Flags:
+    -h  --help              Displays help with available flag, subcommand, and positional value parameters.
+    -i  --image             Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)
+        --images            Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)
+        --excluded-images   Docker image names to exclude (regexp, allowing to exclude some of the queried images)
+    -q  --quiet             Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)
+    -v  --verbose           Enable verbose output
+        --version           Display program version
+        --jon-logs          logs printed as JSON
+    -t  --threads           Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) (default: 20)
 
 ```
 
-### Example of usage
+
+### Example of usage in real situation
 
 #### Manually rely on a parent image having an update available
 
@@ -145,7 +163,7 @@ fi
 #### Trigger a pull for all images having an update available
 
 ```bash
-docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine"  --threads 3 2>/dev/null | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
+docker-base-watch --images "node:24-alpine ghcr.io/esphome/esphome alpine" 2>/dev/null | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
   echo "Pulling image [$IMAGE]"
   docker pull $IMAGE
 done
@@ -163,14 +181,13 @@ As an example, this script can be used as a basis :
 ```bash
 #!/bin/bash
 DOCKER_COMPOSE_FILES_PATH="<path where docker-compose YML files are located>"
-NB_THREADS=10
 
 STACKS=/tmp/update.$$
 IMAGES=$(docker ps --format '{{.Image}}' | sort -u | tr "\n" ",")
 # First pass, identify stack (in docker compose) when an image is available. This is done like this to avoid duplicates of stacks
-docker-base-watch --images "${IMAGES}" --threads $NB_THREADS | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
+docker-base-watch --images "${IMAGES}" | grep "UPDATE_AVAILABLE" | while read STATUS IMAGE ; do
   docker ps --format '{{.Names}}' --filter "ancestor=${IMAGE}" | sort -u | while read CONTAINER ; do
-    grep -l -e "${CONTAINER}:" ${DOCKER_COMPOSE_FILES_PATH}/*.yml | sort -u | while read YAML ; do
+    grep -l -e "${CONTAINER}:\|name:[[:space:]]*${CONTAINER}$" ${DOCKER_COMPOSE_FILES_PATH}/*.yml | sort -u | while read YAML ; do
       STACK=$(basename "$YAML" | sed 's/\.yml//')
       echo "Registering stack [$STACK] for image [$IMAGE] / container [$CONTAINER] (yml [$YAML])"
       echo "${STACK}" >> "${STACKS}"
