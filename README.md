@@ -211,6 +211,7 @@ rm -f "${STACKS}" >/dev/null 2>&1
 - The tool compares image digests to detect whether the local image and remote image refer to the same version (i.e., is not triggering any pull, in order to be idempotent)
 - As a consequence, if needed, you still need to pull the image (`docker pull <image>`) in case of updates being detected.
 
+
 ## DEV Activities
 
 ### Build
