@@ -6,8 +6,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
-	"sync"
 
+	"github.com/SR-G/sul"
 	"github.com/docker/go-sdk/config"
 	"github.com/moby/moby/api/pkg/authconfig"
 	"github.com/moby/moby/api/types/registry"
@@ -204,66 +204,41 @@ func (bw *BaseWatch) CheckImage(imageName string) (*AnalyzeResult, error) {
 	return result, nil
 }
 
-func startThreads(nbThreads int, channelJobs *chan ExecutionWorker, wg *sync.WaitGroup) {
-	for i := 0; i < nbThreads; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for ch := range *channelJobs {
-				ch.Execute()
-			}
-		}()
-	}
-
-}
-
 // Check multiple images at one
 // Errors have to be managed externlly check the Error status of AnalyzeResults)
 func (bw *BaseWatch) CheckImages(imageNames []string) AnalyzeResults {
 
 	// Start pool thread and associated channels
-	channelJobs := make(chan ExecutionWorker, len(imageNames))
-	channelResults := make(chan *AnalyzeResult, len(imageNames))
-	wg := &sync.WaitGroup{}
-
 	results := AnalyzeResults{}
 	sortedImageNames := slices.Clone(lo.Uniq(imageNames))
 	slices.Sort(sortedImageNames)
 
 	bw.LoadAuthConfig(imageNames)
 
-	startThreads(bw.NbThreads, &channelJobs, wg)
+	tpe := sul.ThreadPoolExecutor[*AnalyzeResult]{NbThreads: bw.NbThreads, QueueSize: len(imageNames), DebugCallback: func(event string) {
+		logger.Debug().Msg(event)
+	}}
+	tpe.StartThreads()
 
 	for _, imageName := range sortedImageNames {
 
-		// fmt.Println("Queing job :" + imageName)
-		executionWorker := ExecutionWorker{
-			Execute: func() {
-				// fmt.Println("Executing job :" + imageName)
+		tpe.EnqueueJob(sul.Runnable[*AnalyzeResult]{
+			Execute: func() *AnalyzeResult {
 				result, err := bw.CheckImage(imageName)
 				if err != nil {
 					result.ImageNameSource = imageName
 					result.Error = err
 				}
-				// fmt.Println("Sending result for : " + imageName)
-				channelResults <- result
-
+				return result
 			},
-		}
-		channelJobs <- executionWorker
+		})
 	}
 
-	for i := 0; i < len(sortedImageNames); i++ {
-		result := <-channelResults
+	for range sortedImageNames {
+		result := <-tpe.ChannelResults
 		results = append(results, result)
 	}
-
-	// fmt.Println("Closing channel results  ...")
-	close(channelResults)
-	// fmt.Println("Closing channel jobs ...")
-	close(channelJobs)
-	// fmt.Println("Awaiting end of execution")
-	wg.Wait()
+	tpe.StopThreads()
 
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].ImageNameSource < results[j].ImageNameSource

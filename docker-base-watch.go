@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -15,11 +16,16 @@ import (
 
 var logger zerolog.Logger
 
-const (
-	PROGRAM_NAME          = "docker-base-watch"
-	PROGRAM_VERSION       = "1.1.1"    // overwritten at release time from makefile
-	PROGRAM_VERSION_LABEL = "SNAPSHOT" // overwritten at release time from makefile
+// These variables are injected through Makefile at compile time
+var BuildVersion = "1.1.1"
+var BuildVersionLabel = "DEV"
+var BuildCommit = ""
+var BuildCompilationTimestamp = ""
 
+// Version string
+var Version = sul.Version{ApplicationName: "docker-base-watch", Version: BuildVersion, VersionLabel: BuildVersionLabel, Commit: BuildCommit, CompilationTimestamp: BuildCompilationTimestamp}
+
+const (
 	DEFAULT_NUMBER_OF_THREADS = 20
 
 	EXIT_VALUE_ALL_SAME_VERSION        = 0
@@ -109,6 +115,15 @@ func initBaseWatch(options *Options) *BaseWatch {
 	return result
 }
 
+func isExcluded(regexps []*regexp.Regexp, s string) bool {
+	for _, r := range regexps {
+		if r.MatchString(s) {
+			return true
+		}
+	}
+	return false
+}
+
 func initOptions() *Options {
 	options := &Options{}
 
@@ -120,11 +135,13 @@ func initOptions() *Options {
 
 	var parameterImageName string
 	var parameterImageNames string
+	var parameterExcludedImagesNames string
 
 	var parameterNbConcurrentThreads = sul.GetEnvWithDefaultInt("DOCKER_BASE_WATCH_NB_THREADS", DEFAULT_NUMBER_OF_THREADS)
 
 	flaggy.String(&parameterImageName, "i", "image", "Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)")
 	flaggy.String(&parameterImageNames, "", "images", "Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)")
+	flaggy.String(&parameterExcludedImagesNames, "", "excluded-images", "Docker image names to exclude (regexp, allowing to exclude some of the queried images)")
 
 	flaggy.Bool(&parameterQuiet, "q", "quiet", "Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)")
 	flaggy.Bool(&parameterVerbose, "v", "verbose", "Enable verbose output")
@@ -152,15 +169,32 @@ func initOptions() *Options {
 
 	// Add options
 	options.ImageNames = make([]string, 0)
+
+	// --image
 	imageNameCleaned := strings.TrimSpace(parameterImageName)
 	if imageNameCleaned != "" {
 		options.ImageNames = append(options.ImageNames, strings.TrimSpace(imageNameCleaned))
 	}
 
+	// --excluded-images (regexp patterns)
+	exclusions := make([]*regexp.Regexp, 0)
+	for _, excludedImageName := range sul.SplitAny(parameterExcludedImagesNames, ", ") {
+		excludedImageNameCleaned := strings.TrimSpace(excludedImageName)
+		if excludedImageNameCleaned != "" {
+			r, err := regexp.Compile(excludedImageNameCleaned)
+			if err != nil {
+				logger.Error().Msg("can't compile excluded image as a regexp [" + excludedImageNameCleaned + "], exclusion ignored")
+			} else {
+				exclusions = append(exclusions, r)
+			}
+		}
+	}
+
+	// --images
 	for _, imageName := range sul.SplitAny(parameterImageNames, ", ") {
 		imageNameCleaned := strings.TrimSpace(imageName)
-		if imageNameCleaned != "" {
-			options.ImageNames = append(options.ImageNames, strings.TrimSpace(imageNameCleaned))
+		if imageNameCleaned != "" && !isExcluded(exclusions, imageNameCleaned) {
+			options.ImageNames = append(options.ImageNames, imageNameCleaned)
 		}
 	}
 
