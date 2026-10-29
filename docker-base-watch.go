@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"regexp"
@@ -8,8 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/SR-G/argweave"
 	"github.com/SR-G/sul"
-	"github.com/integrii/flaggy"
+	sulstrings "github.com/SR-G/sul/strings"
 	"github.com/rs/zerolog"
 	"github.com/samber/lo"
 )
@@ -43,12 +45,36 @@ const (
 	RESULT_STATUS_ERROR                    = "ERROR"
 )
 
+//go:generate go run github.com/SR-G/argweave/cmd/weavedoc -type=Options -file=docker-base-watch.go -marker=weavedoc -edit=README.md
+//go:generate go run github.com/SR-G/argweave/cmd/weavehelp -type=Options -file=docker-base-watch.go -name=docker-base-watch -marker=weavehelp -disable-version -no-config-flag -edit=README.md
 type Options struct {
-	ImageNames    []string
+	Image          string   `arg:"short=i,long=image,help=Docker image name to check (in this mode\\, only one information is displayed at the output\\, about the status of that image)"`
+	ImageNames     []string `arg:"long=images,help=Docker image names to check (in this mode\\, all images are checked\\, and the output is displaying the list of all images having some updates available)"`
+	ExcludedImages []string `arg:"long=excluded-images,help=Docker image names to exclude (regexp\\, allowing to exclude some of the queried images)"`
+	Quiet          bool     `arg:"short=q,long=quiet,help=Enable quiet output (final result to be retrieved only through exit value\\, i.e.\\, echo $?)"`
+	LogDebug       bool     `arg:"short=v,long=verbose,help=Enable verbose output"`
+	DisplayVersion bool     `arg:"long=version,help=Display program version"`
+	JSONLogs       bool     `arg:"long=jon-logs,help=logs printed as JSON"`
+	NbThreads      int      `arg:"short=t,long=threads,env=DOCKER_BASE_WATCH_NB_THREADS,default=20,help=Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429\\, etc.)"`
+
 	ExecutionMode string
-	NbThreads     int
-	Quiet         bool
-	LogDebug      bool
+}
+
+// Validate is called by argweave once all values are resolved.
+func (o *Options) Validate() []error {
+	var errs []error
+	if o.NbThreads < 1 {
+		errs = append(errs, fmt.Errorf("--threads must be >= 1, got %d", o.NbThreads))
+	}
+	for _, pattern := range splitImages(o.ExcludedImages) {
+		if _, err := regexp.Compile(pattern); err != nil {
+			errs = append(errs, fmt.Errorf("--excluded-images: can't compile [%s] as a regexp: %w", pattern, err))
+		}
+	}
+	if !o.DisplayVersion && len(splitImages(append([]string{o.Image}, o.ImageNames...))) == 0 {
+		errs = append(errs, errors.New("image name to analyse is mandatory (either through '--image' or '--images')"))
+	}
+	return errs
 }
 
 type ExecutionWorker struct {
@@ -124,88 +150,62 @@ func isExcluded(regexps []*regexp.Regexp, s string) bool {
 	return false
 }
 
-func initOptions() *Options {
-	options := &Options{}
-
-	var parameterVersion bool
-
-	var parameterVerbose bool
-	var parameterQuiet bool
-	var parameterJSONLogs bool
-
-	var parameterImageName string
-	var parameterImageNames string
-	var parameterExcludedImagesNames string
-
-	var parameterNbConcurrentThreads = sul.GetEnvWithDefaultInt("DOCKER_BASE_WATCH_NB_THREADS", DEFAULT_NUMBER_OF_THREADS)
-
-	flaggy.String(&parameterImageName, "i", "image", "Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)")
-	flaggy.String(&parameterImageNames, "", "images", "Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)")
-	flaggy.String(&parameterExcludedImagesNames, "", "excluded-images", "Docker image names to exclude (regexp, allowing to exclude some of the queried images)")
-
-	flaggy.Bool(&parameterQuiet, "q", "quiet", "Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)")
-	flaggy.Bool(&parameterVerbose, "v", "verbose", "Enable verbose output")
-	flaggy.Bool(&parameterVersion, "", "version", "Display program version")
-	flaggy.Bool(&parameterJSONLogs, "", "jon-logs", "logs printed as JSON")
-
-	flaggy.Int(&parameterNbConcurrentThreads, "t", "threads", "Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.)")
-
-	flaggy.DefaultParser.ShowVersionWithVersionFlag = false
-	flaggy.SetName(Version.ApplicationName)
-	flaggy.SetVersion(Version.String())
-	flaggy.Parse()
-
-	if parameterVersion {
-		options.ExecutionMode = EXECUTION_MODE_DISPLAY_VERSION
-	} else {
-		options.ExecutionMode = EXECUTION_MODE_ANALYZE
-	}
-
-	logger = newLogger(parameterJSONLogs, parameterVerbose, parameterQuiet)
-	if parameterVerbose {
-		logger.Debug().Msg("Verbose mode enabled")
-	}
-	options.LogDebug = parameterVerbose
-
-	// Add options
-	options.ImageNames = make([]string, 0)
-
-	// --image
-	imageNameCleaned := strings.TrimSpace(parameterImageName)
-	if imageNameCleaned != "" {
-		options.ImageNames = append(options.ImageNames, strings.TrimSpace(imageNameCleaned))
-	}
-
-	// --excluded-images (regexp patterns)
-	exclusions := make([]*regexp.Regexp, 0)
-	for _, excludedImageName := range sul.SplitAny(parameterExcludedImagesNames, ", ") {
-		excludedImageNameCleaned := strings.TrimSpace(excludedImageName)
-		if excludedImageNameCleaned != "" {
-			r, err := regexp.Compile(excludedImageNameCleaned)
-			if err != nil {
-				logger.Error().Msg("can't compile excluded image as a regexp [" + excludedImageNameCleaned + "], exclusion ignored")
-			} else {
-				exclusions = append(exclusions, r)
+// splitImages splits comma/space-separated values and drops empty entries.
+func splitImages(values []string) []string {
+	result := make([]string, 0)
+	for _, value := range values {
+		for _, part := range sulstrings.SplitAny(value, ", ") {
+			if cleaned := strings.TrimSpace(part); cleaned != "" {
+				result = append(result, cleaned)
 			}
 		}
 	}
+	return result
+}
 
-	// --images
-	for _, imageName := range sul.SplitAny(parameterImageNames, ", ") {
-		imageNameCleaned := strings.TrimSpace(imageName)
-		if imageNameCleaned != "" && !isExcluded(exclusions, imageNameCleaned) {
-			options.ImageNames = append(options.ImageNames, imageNameCleaned)
-		}
-	}
+func initOptions() *Options {
+	options := &Options{}
 
-	options.Quiet = parameterQuiet
-	options.NbThreads = DEFAULT_NUMBER_OF_THREADS
-	if parameterNbConcurrentThreads > 1 {
-		options.NbThreads = parameterNbConcurrentThreads
+	parser, err := argweave.New(options, argweave.AppConfig{
+		Name:        Version.ApplicationName,
+		Version:     Version.String(),
+		Description: "Checks if docker images have newer versions available in upstream registries.",
+		// Flags override ENV; no config file
+		Providers:      []argweave.ProviderKind{argweave.ProviderFlags, argweave.ProviderEnv, argweave.ProviderDefault},
+		DisableVersion: true,
+	})
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(EXIT_VALUE_INTERNAL_ERROR)
 	}
-	logger.Debug().Int("nb", options.NbThreads).Msg("Starting program with multiple threads,")
+	parser.ParseAndHandleExitIfNeeded(os.Args[1:])
+
+	if options.DisplayVersion {
+		options.ExecutionMode = EXECUTION_MODE_DISPLAY_VERSION
+		return options
+	}
+	options.ExecutionMode = EXECUTION_MODE_ANALYZE
+
+	logger = newLogger(options.JSONLogs, options.LogDebug, options.Quiet)
+	logger.Debug().Msg("Verbose mode enabled")
+
+	// Exclusions were already validated as regexps by Validate()
+	exclusions := lo.Map(splitImages(options.ExcludedImages), func(pattern string, _ int) *regexp.Regexp {
+		return regexp.MustCompile(pattern)
+	})
+
+	imageNames := splitImages(options.ImageNames)
+	imageNames = lo.Filter(imageNames, func(name string, _ int) bool { return !isExcluded(exclusions, name) })
+	// --image is never subject to exclusions
+	options.ImageNames = append(splitImages([]string{options.Image}), imageNames...)
 	options.ImageNames = lo.Uniq(options.ImageNames)
 	slices.Sort(options.ImageNames)
+
+	if len(options.ImageNames) == 0 {
+		logger.Error().Msg("All provided images are excluded, nothing to analyse")
+		os.Exit(EXIT_VALUE_INVALID_ARGUMENTS)
+	}
+	logger.Debug().Int("nb", options.NbThreads).Msg("Starting program with multiple threads,")
 
 	return options
 }
@@ -219,12 +219,6 @@ func main() {
 		fmt.Println(Version.String())
 		os.Exit(EXIT_VALUE_NOTHING_DONE)
 	case EXECUTION_MODE_ANALYZE:
-		if len(options.ImageNames) == 0 {
-			logger.Error().Msg("Image name to analyse is mandatory (either through '--image' or '--images')")
-			flaggy.DefaultParser.ShowHelp()
-			os.Exit(EXIT_VALUE_INVALID_ARGUMENTS)
-		}
-
 		baseWatch := initBaseWatch(options)
 		defer baseWatch.Close()
 
@@ -246,7 +240,7 @@ func main() {
 			}
 		}
 		elapsed := time.Since(startTime)
-		logger.Debug().Int("analyzed images", len(options.ImageNames)).Int("threads", options.NbThreads).Str("elapsed", sul.HumanizeDuration(elapsed)).Msg("End of execution :")
+		logger.Debug().Int("analyzed images", len(options.ImageNames)).Int("threads", options.NbThreads).Str("elapsed", sulstrings.HumanizeDuration(elapsed)).Msg("End of execution :")
 		if errors > 0 {
 			os.Exit(EXIT_VALUE_INTERNAL_ERROR)
 		} else {

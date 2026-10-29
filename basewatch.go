@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/SR-G/sul"
+	"github.com/SR-G/sul/threads"
 	"github.com/docker/go-sdk/config"
 	"github.com/moby/moby/api/pkg/authconfig"
 	"github.com/moby/moby/api/types/registry"
@@ -215,14 +215,14 @@ func (bw *BaseWatch) CheckImages(imageNames []string) AnalyzeResults {
 
 	bw.LoadAuthConfig(imageNames)
 
-	tpe := sul.ThreadPoolExecutor[*AnalyzeResult]{NbThreads: bw.NbThreads, QueueSize: len(imageNames), DebugCallback: func(event string) {
+	tpe := threads.ThreadPoolExecutor[*AnalyzeResult]{NbThreads: bw.NbThreads, QueueSize: len(imageNames), DebugCallback: func(event string) {
 		logger.Debug().Msg(event)
 	}}
 	tpe.StartThreads()
 
 	for _, imageName := range sortedImageNames {
 
-		tpe.EnqueueJob(sul.Runnable[*AnalyzeResult]{
+		tpe.EnqueueJob(threads.Runnable[*AnalyzeResult]{
 			Execute: func() *AnalyzeResult {
 				result, err := bw.CheckImage(imageName)
 				if err != nil {

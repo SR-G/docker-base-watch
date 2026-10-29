@@ -123,24 +123,41 @@ docker-base-watch --images "alpine,archlinux,gluetun-homelab" --excluded-images 
 
 ### All available flags
 
-```bash
+<!-- weavehelp:start -->
+```
 docker-base-watch
 
-  Subcommands:
-    completion   Generate shell completion script for bash or zsh.
+USAGE:
+    docker-base-watch [OPTIONS]
 
-  Flags:
-    -h  --help              Displays help with available flag, subcommand, and positional value parameters.
-    -i  --image             Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)
-        --images            Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)
-        --excluded-images   Docker image names to exclude (regexp, allowing to exclude some of the queried images)
-    -q  --quiet             Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)
-    -v  --verbose           Enable verbose output
-        --version           Display program version
-        --jon-logs          logs printed as JSON
-    -t  --threads           Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) (default: 20)
-
+OPTIONS:
+        --excluded-images <EXCLUDED_IMAGES>  Docker image names to exclude (regexp, allowing to exclude some of the queried images)
+        --images <IMAGES>                    Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available)
+        --jon-logs                           logs printed as JSON
+        --version                            Display program version
+    -i, --image <IMAGE>                      Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image)
+    -q, --quiet                              Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?)
+    -t, --threads <THREADS>                  Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) [env: DOCKER_BASE_WATCH_NB_THREADS] [default: 20]
+    -v, --verbose                            Enable verbose output
+    -h, --help                               Print help information
+        --print-config                       Print the resolved configuration as JSON
 ```
+<!-- weavehelp:end -->
+
+### Options reference
+
+<!-- weavedoc:start -->
+| Group | Type | Long | Short | Aliases | Positional | Env | Required | Default | Requires | Conflicts | Behavior | Description |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| - | string | `--image` | `-i` | - | No | - | No | - | - | - | - | Docker image name to check (in this mode, only one information is displayed at the output, about the status of that image) |
+| - | []string | `--images` | - | - | No | - | No | - | - | - | - | Docker image names to check (in this mode, all images are checked, and the output is displaying the list of all images having some updates available) |
+| - | []string | `--excluded-images` | - | - | No | - | No | - | - | - | - | Docker image names to exclude (regexp, allowing to exclude some of the queried images) |
+| - | bool | `--quiet` | `-q` | - | No | - | No | - | - | - | - | Enable quiet output (final result to be retrieved only through exit value, i.e., echo $?) |
+| - | bool | `--verbose` | `-v` | - | No | - | No | - | - | - | - | Enable verbose output |
+| - | bool | `--version` | - | - | No | - | No | - | - | - | - | Display program version |
+| - | bool | `--jon-logs` | - | - | No | - | No | - | - | - | - | logs printed as JSON |
+| - | int | `--threads` | `-t` | - | No | `DOCKER_BASE_WATCH_NB_THREADS` | No | `20` | - | - | - | Number of concurrent threads running in parallel (warning : too many threads may lead to errors like 429, etc.) |
+<!-- weavedoc:end -->
 
 
 ### Example of usage in real situation
